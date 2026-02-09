@@ -16,22 +16,22 @@ class Player {
   constructor(tileSize) {
     this.ts = tileSize;
 
-    // Current grid position (row/col).
+    // Player position in grid coordinates
     this.r = 0;
     this.c = 0;
 
-    // Movement throttle (so a key press doesn't move 60 tiles per second).
+    // Movement timing to prevent rapid movement
     this.movedAt = 0;
-    this.moveDelay = 90; // ms
+    this.moveDelay = 90;
   }
 
-  // Place the player at a specific grid location (e.g., the level's start).
+  // Place player at a specific grid cell
   setCell(r, c) {
     this.r = r;
     this.c = c;
   }
 
-  // Convert grid coords to pixel center (for drawing a circle).
+  // Convert grid position to pixel center
   pixelX() {
     return this.c * this.ts + this.ts / 2;
   }
@@ -41,41 +41,25 @@ class Player {
   }
 
   draw() {
-    // Same "simple high-contrast avatar" idea as your original.
     fill(20, 120, 255);
     circle(this.pixelX(), this.pixelY(), this.ts * 0.6);
   }
 
-  /*
-  Try to move by (dr, dc) tiles.
-
-  Inputs:
-  - level: a Level instance, used for bounds + wall collision + goal detection
-  - dr/dc: desired movement step, typically -1,0,1
-
-  Returns:
-  - true if the move happened
-  - false if blocked or throttled
-  */
+  // Attempt to move the player by one tile
   tryMove(level, dr, dc) {
-    // Throttle discrete movement using millis()
     const now = millis();
     if (now - this.movedAt < this.moveDelay) return false;
 
     const nr = this.r + dr;
     const nc = this.c + dc;
 
-    // Prevent walking off the map.
+    // Prevent moving out of bounds or into walls/obstacles
     if (!level.inBounds(nr, nc)) return false;
-
-    // Prevent walking into walls.
     if (level.isWall(nr, nc)) return false;
 
-    // Movement is allowed, so commit.
     this.r = nr;
     this.c = nc;
     this.movedAt = now;
-
     return true;
   }
 }

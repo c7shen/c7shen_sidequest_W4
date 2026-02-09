@@ -19,45 +19,41 @@ Based on the playable maze structure from Example 3
 
 const TS = 32;
 
-// Raw JSON data (from levels.json).
-let levelsData;
-
-// Array of Level instances.
-let levels = [];
-
-// Current level index.
-let li = 0;
-
-// Player instance (tile-based).
+let levelsData; // Raw JSON data
+let levels = []; // Array of Level objects
+let li = 0; // Current level index
 let player;
 
 function preload() {
-  // Ensure level data is ready before setup runs.
+  // Load levels before setup runs
   levelsData = loadJSON("levels.json");
 }
 
 function setup() {
-  /*
-  Convert raw JSON grids into Level objects.
-  levelsData.levels is an array of 2D arrays. 
-  */
-  levels = levelsData.levels.map((grid) => new Level(copyGrid(grid), TS));
+  // A canvas must exist before resizeCanvas() can be used
+  createCanvas(1, 1);
 
-  // Create a player.
+  // Convert JSON grids into Level objects
+  levels = levelsData.levels.map((grid) => {
+    const lvl = new Level(copyGrid(grid), TS);
+    placeRandomObstacle(lvl); // Add one safe random obstacle
+    return lvl;
+  });
+
+  // Create the player
   player = new Player(TS);
 
-  // Load the first level (sets player start + canvas size).
+  // Load the first level
   loadLevel(0);
 
   noStroke();
-  textFont("sans-serif");
   textSize(14);
 }
 
 function draw() {
   background(240);
 
-  // Draw current level then player on top.
+  // Draw level and player
   levels[li].draw();
   player.draw();
 
@@ -65,69 +61,110 @@ function draw() {
 }
 
 function drawHUD() {
-  // HUD matches your original idea: show level count and controls.
   fill(0);
-  text(`Level ${li + 1}/${levels.length} — WASD/Arrows to move`, 10, 16);
+  text(`Level ${li + 1} / ${levels.length}`, 10, 16);
 }
 
 function keyPressed() {
-  /*
-  Convert key presses into a movement direction. (WASD + arrows)
-  */
   let dr = 0;
   let dc = 0;
 
-  if (keyCode === LEFT_ARROW || key === "a" || key === "A") dc = -1;
-  else if (keyCode === RIGHT_ARROW || key === "d" || key === "D") dc = 1;
-  else if (keyCode === UP_ARROW || key === "w" || key === "W") dr = -1;
-  else if (keyCode === DOWN_ARROW || key === "s" || key === "S") dr = 1;
-  else return; // not a movement key
+  // WASD + arrow key movement
+  if (keyCode === LEFT_ARROW || key === "a") dc = -1;
+  else if (keyCode === RIGHT_ARROW || key === "d") dc = 1;
+  else if (keyCode === UP_ARROW || key === "w") dr = -1;
+  else if (keyCode === DOWN_ARROW || key === "s") dr = 1;
+  else return;
 
-  // Try to move. If blocked, nothing happens.
   const moved = player.tryMove(levels[li], dr, dc);
 
-  // If the player moved onto a goal tile, advance levels.
+  // If the player reaches the goal, move to next level
   if (moved && levels[li].isGoal(player.r, player.c)) {
     nextLevel();
   }
 }
 
-// ----- Level switching -----
-
 function loadLevel(idx) {
   li = idx;
+  const lvl = levels[li];
 
-  const level = levels[li];
+  // Place player at start tile
+  if (lvl.start) player.setCell(lvl.start.r, lvl.start.c);
+  else player.setCell(1, 1);
 
-  // Place player at the level's start tile (2), if present.
-  if (level.start) {
-    player.setCell(level.start.r, level.start.c);
-  } else {
-    // Fallback spawn: top-left-ish (but inside bounds).
-    player.setCell(1, 1);
-  }
-
-  // Ensure the canvas matches this level’s dimensions.
-  resizeCanvas(level.pixelWidth(), level.pixelHeight());
+  // Resize canvas to fit level dimensions
+  resizeCanvas(lvl.pixelWidth(), lvl.pixelHeight());
 }
 
 function nextLevel() {
-  // Wrap around when we reach the last level.
-  const next = (li + 1) % levels.length;
-  loadLevel(next);
+  // Loop back to first level after last
+  loadLevel((li + 1) % levels.length);
 }
 
-// ----- Utility -----
+// ---------- Helper functions ----------
 
+// Create a deep copy of a 2D grid
 function copyGrid(grid) {
-  /*
-  Make a deep-ish copy of a 2D array:
-  - new outer array
-  - each row becomes a new array
-
-  Why copy?
-  - Because Level constructor may normalize tiles (e.g., replace 2 with 0)
-  - And we don’t want to accidentally mutate the raw JSON data object. 
-  */
   return grid.map((row) => row.slice());
+}
+
+// Place exactly one obstacle without blocking the path to the goal
+function placeRandomObstacle(level) {
+  const floors = [];
+  let goal = null;
+
+  for (let r = 0; r < level.rows(); r++) {
+    for (let c = 0; c < level.cols(); c++) {
+      if (level.grid[r][c] === 0) floors.push({ r, c });
+      if (level.grid[r][c] === 3) goal = { r, c };
+    }
+  }
+
+  shuffle(floors, true);
+
+  for (const cell of floors) {
+    level.grid[cell.r][cell.c] = 4;
+
+    if (pathExists(level, level.start, goal)) return;
+
+    // Undo if it blocks the path
+    level.grid[cell.r][cell.c] = 0;
+  }
+}
+
+// Breadth-first search to confirm the goal is reachable
+function pathExists(level, start, goal) {
+  const visited = Array.from({ length: level.rows() }, () =>
+    Array(level.cols()).fill(false),
+  );
+
+  const queue = [start];
+  visited[start.r][start.c] = true;
+
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+
+  while (queue.length > 0) {
+    const { r, c } = queue.shift();
+
+    if (r === goal.r && c === goal.c) return true;
+
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr;
+      const nc = c + dc;
+
+      if (!level.inBounds(nr, nc)) continue;
+      if (visited[nr][nc]) continue;
+      if (level.isWall(nr, nc)) continue;
+
+      visited[nr][nc] = true;
+      queue.push({ r: nr, c: nc });
+    }
+  }
+
+  return false;
 }

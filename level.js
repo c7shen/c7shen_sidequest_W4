@@ -8,6 +8,7 @@ Tile legend (from your original example):
 1 = wall
 2 = start
 3 = goal
+4 = obstacle
 
 Responsibilities:
 - Store the grid
@@ -18,23 +19,20 @@ Responsibilities:
 
 class Level {
   constructor(grid, tileSize) {
-    // Store the tile grid and tile size (pixels per tile).
+    // Store the grid and tile size
     this.grid = grid;
     this.ts = tileSize;
 
-    // Start position in grid coordinates (row/col).
-    // We compute this by scanning for tile value 2.
+    // Find and store the start tile position
     this.start = this.findStart();
 
-    // Optional: if you don't want the start tile to remain "special"
-    // after you’ve used it to spawn the player, you can normalize it
-    // to floor so it draws like floor and behaves like floor.
+    // Normalize start tile to floor so it behaves like a normal tile
     if (this.start) {
       this.grid[this.start.r][this.start.c] = 0;
     }
   }
 
-  // ----- Size helpers -----
+  // ----- Grid size helpers -----
 
   rows() {
     return this.grid.length;
@@ -52,19 +50,20 @@ class Level {
     return this.rows() * this.ts;
   }
 
-  // ----- Semantic helpers -----
+  // ----- Tile meaning helpers -----
 
   inBounds(r, c) {
     return r >= 0 && c >= 0 && r < this.rows() && c < this.cols();
   }
 
   tileAt(r, c) {
-    // Caller should check inBounds first.
     return this.grid[r][c];
   }
 
+  // Walls and obstacles both block movement
   isWall(r, c) {
-    return this.tileAt(r, c) === 1;
+    const t = this.tileAt(r, c);
+    return t === 1 || t === 4;
   }
 
   isGoal(r, c) {
@@ -74,7 +73,7 @@ class Level {
   // ----- Start-finding -----
 
   findStart() {
-    // Scan entire grid to locate the tile value 2 (start).
+    // Scan grid to find tile value 2
     for (let r = 0; r < this.rows(); r++) {
       for (let c = 0; c < this.cols(); c++) {
         if (this.grid[r][c] === 2) {
@@ -82,36 +81,28 @@ class Level {
         }
       }
     }
-
-    // If a level forgets to include a start tile, return null.
-    // (Then the game can choose a default spawn.)
     return null;
   }
 
   // ----- Drawing -----
 
   draw() {
-    /*
-    Draw each tile as a rectangle.
-
-    Visual rules (matches your original logic): 
-    - Walls (1): dark teal
-    - Everything else: light floor
-    - Goal tile (3): add a highlighted inset rectangle
-    */
+    // Loop through the grid and draw each tile
     for (let r = 0; r < this.rows(); r++) {
       for (let c = 0; c < this.cols(); c++) {
         const v = this.grid[r][c];
 
-        // Base tile fill
-        if (v === 1) fill(30, 50, 60);
-        else fill(232);
+        // Base tile colors
+        if (v === 1)
+          fill(30, 50, 60); // wall
+        else if (v === 4)
+          fill(160, 60, 60); // obstacle
+        else fill(232); // floor
 
         rect(c * this.ts, r * this.ts, this.ts, this.ts);
 
-        // Goal highlight overlay (only on tile 3).
+        // Highlight the goal tile
         if (v === 3) {
-          noStroke();
           fill(255, 200, 120, 200);
           rect(c * this.ts + 4, r * this.ts + 4, this.ts - 8, this.ts - 8, 6);
         }
