@@ -28,6 +28,8 @@ function preload() {
 }
 
 function setup() {
+  createCanvas(1, 1);
+
   levels = levelsData.levels.map((grid) => {
     const lvl = new Level(copyGrid(grid), TS);
     placeRandomObstacle(lvl);
