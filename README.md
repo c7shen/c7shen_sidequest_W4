@@ -12,8 +12,8 @@ This project is a tile-based maze game where the player navigates through levels
 
 ## Interaction Instructions
 
-> Use WASD or arrow keys to move the player up, down, left, or right
-> Player cannot move through walls and obstacles
-> Reach the highlighted goal tile to advance to next level
+- Use WASD or arrow keys to move the player up, down, left, or right
+- Player cannot move through walls and obstacles
+- Reach the highlighted goal tile to advance to next level
 
 ---
